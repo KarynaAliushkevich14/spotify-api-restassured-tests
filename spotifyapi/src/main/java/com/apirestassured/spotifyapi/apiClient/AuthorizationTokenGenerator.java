@@ -17,22 +17,35 @@ public class AuthorizationTokenGenerator {
 
     private static String accessToken;
     private static Date expiresAt;
-    private static final RequestSpecification authRequestSpec = ReqSpecification.getAuthRequestSpec();
+
+    private static String refreshToken;
+    private static String tokenType;
+    private static String tokenScope;
+
+    private static final String TOKEN_URL = "https://accounts.spotify.com/api/token"; // ?
+
+    private static final RequestSpecification ACCESS_TOKEN_SPEC_THROUGH_CLIENT_CREDENTIALS = ReqSpecification.getAuthRequestSpec_throughClientCredentials();
+    private static final RequestSpecification ACCESS_TOKEN_SPEC_THROUGH_AUTHORIZATION = ReqSpecification.getAuthRequestSpec_throughAuthorization();
 
     private static final Logger logger = LoggerFactory.getLogger(AuthorizationTokenGenerator.class);
 
 
-    public static String generateValidAccessToken() {
+    // CLIENT CREDENTIALS FLOW
+    /**
+     *  "Request authorization"
+     *  https://developer.spotify.com/documentation/web-api/tutorials/client-credentials-flow
+     * */
+    public static String generateValidAccessToken_clientCredentialsFlow() {
         if (accessToken == null || new Date().after(expiresAt)){
-            refreshAccessToken();
+            refreshAccessToken_clientCredentialsFlow();
         }
         return accessToken;
     }
 
-    private static synchronized void refreshAccessToken() {
+    private static synchronized void refreshAccessToken_clientCredentialsFlow() {
         Response response = RestAssured
                 .given()
-                    .spec(authRequestSpec)
+                    .spec(ACCESS_TOKEN_SPEC_THROUGH_CLIENT_CREDENTIALS)
                     .formParam("grant_type", "client_credentials")
                 .when()
                     .request(Method.POST)
@@ -48,6 +61,81 @@ public class AuthorizationTokenGenerator {
             expiresAt = new Date(System.currentTimeMillis() + (expiresIn - 10) * 1000L);
 
             logger.info("LOGGER - AuthorizationTokenGenerator - accessToken: " + accessToken + ", expiry date: " + expiresAt);
+        } catch (Exception ex) {
+            throw new RuntimeException("Failed to get access token: " + response.statusCode());
+        }
+    }
+
+    // AUTHORIZATION FLOW
+    /**
+     * "Request User Authorization"
+     *  https://developer.spotify.com/documentation/web-api/tutorials/code-flow
+     * */
+    private static String generateAuthorizationCode_authorizationFlow(String authorizationCode) {
+        Response response = RestAssured
+                .given()
+                    .formParam("grant_type", "authorization_code")
+                    .formParam("code", authorizationCode)
+                    .formParam("redirect_uri", SpotifyClientService.getRedirectUri())
+                    .formParam("client_id", SpotifyClientService.getClientId()) // ?
+                    .formParam("client_secret", SpotifyClientService.getClientSecret()) // ?
+                .when()
+                    .post()//TOKEN_URL
+                .then()
+                    .log().ifError()
+
+                    .assertThat().statusCode(200)
+
+                    .extract().response();
+        try {
+            accessToken = response.jsonPath().getString("access_token");
+
+            tokenScope = response.jsonPath().getString("scope");
+            tokenType = response.jsonPath().getString("token_type");
+            refreshToken = response.jsonPath().getString("refresh_token");
+
+            int expiresIn = response.jsonPath().getInt("expires_in"); // The time period (in seconds) for which the access token is valid.
+            expiresAt = new Date(System.currentTimeMillis() + (expiresIn - 10) * 1000L);
+
+            return accessToken;
+        } catch (Exception ex) {
+            throw new RuntimeException("Failed to get access token: " + response.statusCode());
+        }
+    }
+
+
+    /**
+     * "Request an access token"
+     *  https://developer.spotify.com/documentation/web-api/tutorials/code-flow
+     * */
+    private static String generateValidAccessToken_authorizationFlow(String authorizationCode) {
+        Response response = RestAssured
+                .given()
+                    .spec(ACCESS_TOKEN_SPEC_THROUGH_AUTHORIZATION) // Authorization = Basic {client_id * client_secret} + Content-Type = application/x-www-form-urlencoded.
+                    .formParam("grant_type", "authorization_code")
+                    .formParam("code", authorizationCode)
+                    .formParam("redirect_uri", SpotifyClientService.getRedirectUri())
+                    .formParam("client_id", SpotifyClientService.getClientId()) // ?
+                    .formParam("client_secret", SpotifyClientService.getClientSecret()) // ?
+                .when()
+                    .post()//TOKEN_URL
+                .then()
+                    .log().ifError()
+
+                    .assertThat().statusCode(200)
+
+                    .extract().response();
+        try {
+            accessToken = response.jsonPath().getString("access_token");
+
+            tokenScope = response.jsonPath().getString("scope");
+            tokenType = response.jsonPath().getString("token_type");
+            refreshToken = response.jsonPath().getString("refresh_token");
+
+            int expiresIn = response.jsonPath().getInt("expires_in"); // The time period (in seconds) for which the access token is valid.
+            expiresAt = new Date(System.currentTimeMillis() + (expiresIn - 10) * 1000L);
+
+            return accessToken;
         } catch (Exception ex) {
             throw new RuntimeException("Failed to get access token: " + response.statusCode());
         }

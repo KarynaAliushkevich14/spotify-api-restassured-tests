@@ -25,11 +25,10 @@ public class ApiClient {
     private static final Logger logger = LoggerFactory.getLogger(ApiClient.class);
 
 
-    // generic method
-    public <T> T sendGenericRequest(String endpoint, Method httpMethod, @Nullable String jsonBody, Class<T> responseClass) {
+    public <T> T sendGenericRequest_ClientCredentialsFlow(String endpoint, Method httpMethod, @Nullable String jsonBody, Class<T> responseClass) {
 
         // we move accessToken here, so it will be requested before every new apiRequest
-        String accessToken = AuthorizationTokenGenerator.generateValidAccessToken();
+        String accessToken = AuthorizationTokenGenerator.generateValidAccessToken_clientCredentialsFlow();
 
         Response response = RestAssured
                 .given()
@@ -54,8 +53,37 @@ public class ApiClient {
         }
     }
 
-    // get ApiRequestSpecification
     private RequestSpecification getApiRequestSpecificationWithAccessToken(String accessToken) {
         return ReqSpecification.getApiRequestSpec(accessToken);
+    }
+
+
+
+    public <T> T sendGenericRequest_Authorization(String endpoint, Method httpMethod, @Nullable String jsonBody, Class<T> responseClass) {
+
+        // we move accessToken here, so it will be requested before every new apiRequest
+        String accessToken = AuthorizationTokenGenerator.generateValidAccessToken_clientCredentialsFlow();
+
+        Response response = RestAssured
+                .given()
+                .spec(getApiRequestSpecificationWithAccessToken(accessToken))
+                .body(jsonBody != null ? jsonBody : "")
+                .when()
+                .request(httpMethod, endpoint)
+                .then()
+                .log().all()
+                .log().ifError()
+                .log().ifValidationFails()
+
+                .assertThat().statusCode(200)
+
+                .extract().response();
+        try {
+            logger.info("LOGGER - ApiClient - endpoint: " + endpoint + ", jsonBody: " + jsonBody);
+
+            return objectMapper.readValue(response.getBody().asString(), responseClass);
+        } catch (Exception e) {
+            throw new RuntimeException("Couldn't deserialize JSON response body to an object from sendRequest()" + responseClass.getSimpleName(), e);
+        }
     }
 }
