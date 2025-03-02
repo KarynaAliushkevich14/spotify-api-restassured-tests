@@ -1,0 +1,61 @@
+package com.apirestassured.spotifyapi.apiClient;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.restassured.RestAssured;
+import io.restassured.http.Method;
+import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
+import jakarta.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.w3c.dom.ls.LSOutput;
+
+
+/**
+ * https://developer.spotify.com/documentation/web-api/concepts/api-calls
+ * */
+
+@Component
+//@Scope("prototype")
+public class ApiClient {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static final Logger logger = LoggerFactory.getLogger(ApiClient.class);
+
+
+    // generic method
+    public <T> T sendGenericRequest(String endpoint, Method httpMethod, @Nullable String jsonBody, Class<T> responseType) {
+
+        // we move accessToken here, so it will be requested before every new apiRequest
+        String accessToken = AuthorizationTokenGenerator.generateValidAccessToken();
+
+        Response response = RestAssured
+                .given()
+                    .spec(getApiRequestSpecificationWithAccessToken(accessToken))
+                    .body(jsonBody)
+                .when()
+                    .request(httpMethod, endpoint)
+                .then()
+                    .log().all()
+                    .log().ifError()
+                    .log().ifValidationFails()
+
+                .assertThat().statusCode(200)
+
+                .extract().response();
+        try {
+            logger.info("LOGGER - ApiClient - endpoint: " + endpoint + ", jsonBody: " + jsonBody);
+
+            return objectMapper.readValue(response.getBody().asString(), responseType);
+        } catch (Exception e) {
+            throw new RuntimeException("Couldn't deserialize JSON response body to an object from sendRequest()" + responseType.getSimpleName(), e);
+        }
+    }
+
+    // get ApiRequestSpecification
+    private RequestSpecification getApiRequestSpecificationWithAccessToken(String accessToken) {
+        return ReqSpecification.getApiRequestSpec(accessToken);
+    }
+}
