@@ -26,7 +26,7 @@ public class ApiClient {
 
 
     // generic method
-    public <T> T sendGenericRequest(String endpoint, Method httpMethod, @Nullable String jsonBody, Class<T> responseType) {
+    public <T> T sendGenericRequest(String endpoint, Method httpMethod, @Nullable String jsonBody, Class<T> responseClass) {
 
         // we move accessToken here, so it will be requested before every new apiRequest
         String accessToken = AuthorizationTokenGenerator.generateValidAccessToken();
@@ -34,7 +34,7 @@ public class ApiClient {
         Response response = RestAssured
                 .given()
                     .spec(getApiRequestSpecificationWithAccessToken(accessToken))
-                    .body(jsonBody)
+                    .body(jsonBody != null ? jsonBody : "")
                 .when()
                     .request(httpMethod, endpoint)
                 .then()
@@ -48,9 +48,9 @@ public class ApiClient {
         try {
             logger.info("LOGGER - ApiClient - endpoint: " + endpoint + ", jsonBody: " + jsonBody);
 
-            return objectMapper.readValue(response.getBody().asString(), responseType);
+            return objectMapper.readValue(response.getBody().asString(), responseClass);
         } catch (Exception e) {
-            throw new RuntimeException("Couldn't deserialize JSON response body to an object from sendRequest()" + responseType.getSimpleName(), e);
+            throw new RuntimeException("Couldn't deserialize JSON response body to an object from sendRequest()" + responseClass.getSimpleName(), e);
         }
     }
 
