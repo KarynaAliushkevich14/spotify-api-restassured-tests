@@ -36,6 +36,6 @@ public class SpotifyTests {
     public void getArtist() {
         logger.info("LOGGER - SpotifyTests - getArtist() - apiClient.hashCode(): " + apiClient.hashCode());
 
-        apiClient.sendGenericRequest("/artists/24eDfi2MSYo3A87hCcgpIL", Method.GET, NULL, GetArtistDto.class);
+        apiClient.sendGenericRequest("/artists/0TnOYISbd1XYRBk9myaseg", Method.GET, null, GetArtistDto.class);
     }
 }
