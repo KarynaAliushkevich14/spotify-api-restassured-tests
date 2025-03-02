@@ -8,8 +8,8 @@ import io.restassured.specification.RequestSpecification;
 import jakarta.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
-import org.w3c.dom.ls.LSOutput;
 
 
 /**
@@ -17,7 +17,7 @@ import org.w3c.dom.ls.LSOutput;
  * */
 
 @Component
-//@Scope("prototype")
+@Scope("prototype")
 public class ApiClient {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
