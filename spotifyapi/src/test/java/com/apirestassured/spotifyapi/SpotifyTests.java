@@ -4,10 +4,14 @@ import com.apirestassured.spotifyapi.apiClient.ApiClient;
 import com.apirestassured.spotifyapi.apiClient.AuthorizationTokenGenerator;
 import com.apirestassured.spotifyapi.model.responseDto.GetArtistDto;
 import com.apirestassured.spotifyapi.model.responseDto.SaveAlbumForCurrentUserResponseDto;
+import com.apirestassured.spotifyapi.selenium.SpotifyLoginSelenium;
 import com.apirestassured.spotifyapi.service.SaveAlbumsForCurrentUserRequestService;
 import io.restassured.http.Method;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,13 +23,23 @@ public class SpotifyTests {
 
     private final ApiClient apiClient;
     private final SaveAlbumsForCurrentUserRequestService saveAlbumsForCurrentUserRequestService;
+    private final SpotifyLoginSelenium spotifyLoginSelenium;
+
+    private WebDriver driver;
 
     private static final Logger logger = LoggerFactory.getLogger(SpotifyTests.class);
 
     @Autowired
-    public SpotifyTests(ApiClient apiClient, SaveAlbumsForCurrentUserRequestService saveAlbumsForCurrentUserRequestService) {
+    public SpotifyTests(ApiClient apiClient, SaveAlbumsForCurrentUserRequestService saveAlbumsForCurrentUserRequestService, SpotifyLoginSelenium spotifyLoginSelenium) {
         this.apiClient = apiClient;
         this.saveAlbumsForCurrentUserRequestService = saveAlbumsForCurrentUserRequestService;
+        this.spotifyLoginSelenium = spotifyLoginSelenium;
+    }
+
+    @BeforeEach
+    public void createNewWebDriver() {
+        driver = new ChromeDriver();
+        driver.manage().window().maximize();
     }
 
     @Test
@@ -44,12 +58,25 @@ public class SpotifyTests {
 
     @Test
     public void saveAlbumsForCurrentUser() {
+        // make a request through a builder
         var requestBuilder = saveAlbumsForCurrentUserRequestService.saveAlbumsForCurrentUserRequestBuilder;
         var jsonBuilder = saveAlbumsForCurrentUserRequestService.mapObjectToJsonRequest(requestBuilder); // serialize from Request Object to JSON file
 
-        System.out.println(jsonBuilder);
+        // retrieve a code
+        String url = AuthorizationTokenGenerator.getRequestAuthorizationCode();
+        String code = spotifyLoginSelenium.getCodeAfterRedirect(url);
+
+        // retrieve accessToken
+        String accessToken = AuthorizationTokenGenerator.generateValidAccessToken_authorizationFlow(code);
+
         System.out.println("JSON Body: " + jsonBuilder);
 
-        apiClient.sendGenericRequest_ClientCredentialsFlow(saveAlbumsForCurrentUserRequestService.endpoint, Method.PUT, jsonBuilder, SaveAlbumForCurrentUserResponseDto.class);
+        // make API call
+        apiClient.sendGenericRequest_AuthorizationFlow(
+                saveAlbumsForCurrentUserRequestService.endpoint,
+                Method.PUT,
+                jsonBuilder,
+                accessToken,
+                SaveAlbumForCurrentUserResponseDto.class);
     }
 }

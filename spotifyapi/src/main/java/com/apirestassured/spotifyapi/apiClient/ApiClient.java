@@ -59,25 +59,25 @@ public class ApiClient {
 
 
 
-    public <T> T sendGenericRequest_Authorization(String endpoint, Method httpMethod, @Nullable String jsonBody, Class<T> responseClass) {
+    public <T> T sendGenericRequest_AuthorizationFlow(String endpoint, Method httpMethod, @Nullable String jsonBody, String accessToken, Class<T> responseClass) {
 
         // we move accessToken here, so it will be requested before every new apiRequest
-        String accessToken = AuthorizationTokenGenerator.generateValidAccessToken_clientCredentialsFlow();
+        String token = AuthorizationTokenGenerator.generateValidAccessToken_authorizationFlow(accessToken);
 
         Response response = RestAssured
                 .given()
-                .spec(getApiRequestSpecificationWithAccessToken(accessToken))
-                .body(jsonBody != null ? jsonBody : "")
+                    .spec(getApiRequestSpecificationWithAccessToken(accessToken))
+                    .body(jsonBody != null ? jsonBody : "")
                 .when()
-                .request(httpMethod, endpoint)
+                    .request(httpMethod, endpoint)
                 .then()
-                .log().all()
-                .log().ifError()
-                .log().ifValidationFails()
+                    .log().all()
+                    .log().ifError()
+                    .log().ifValidationFails()
 
-                .assertThat().statusCode(200)
+                    .assertThat().statusCode(200)
 
-                .extract().response();
+                    .extract().response();
         try {
             logger.info("LOGGER - ApiClient - endpoint: " + endpoint + ", jsonBody: " + jsonBody);
 

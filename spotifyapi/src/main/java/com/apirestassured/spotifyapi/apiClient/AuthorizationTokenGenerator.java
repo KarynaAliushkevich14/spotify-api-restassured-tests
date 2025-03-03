@@ -23,6 +23,7 @@ public class AuthorizationTokenGenerator {
     private static String tokenScope;
 
     private static final String TOKEN_URL = "https://accounts.spotify.com/api/token"; // ?
+    private static final String AUTH_URL = "https://accounts.spotify.com/authorize";
 
     private static final RequestSpecification ACCESS_TOKEN_SPEC_THROUGH_CLIENT_CREDENTIALS = ReqSpecification.getAuthRequestSpec_throughClientCredentials();
     private static final RequestSpecification ACCESS_TOKEN_SPEC_THROUGH_AUTHORIZATION = ReqSpecification.getAuthRequestSpec_throughAuthorization();
@@ -53,7 +54,6 @@ public class AuthorizationTokenGenerator {
                     .log().ifError()
 
                     .assertThat().statusCode(200)
-
                     .extract().response();
         try {
             accessToken = response.jsonPath().getString("access_token");
@@ -71,59 +71,42 @@ public class AuthorizationTokenGenerator {
      * "Request User Authorization"
      *  https://developer.spotify.com/documentation/web-api/tutorials/code-flow
      * */
-    private static String generateAuthorizationCode_authorizationFlow(String authorizationCode) {
-        Response response = RestAssured
-                .given()
-                    .formParam("grant_type", "authorization_code")
-                    .formParam("code", authorizationCode)
-                    .formParam("redirect_uri", SpotifyClientService.getRedirectUri())
-                    .formParam("client_id", SpotifyClientService.getClientId()) // ?
-                    .formParam("client_secret", SpotifyClientService.getClientSecret()) // ?
-                .when()
-                    .post()//TOKEN_URL
-                .then()
-                    .log().ifError()
+    public static String getRequestAuthorizationCode() {
+        String url = AUTH_URL + "?" +
+                "response_type=code" +
+                "&client_id=" + SpotifyClientService.getClientId() +
+                "&scope=user-read-private%20user-read-email" +
+                "&redirect_uri=" + SpotifyClientService.getRedirectUri() +
+                "&state=RANDOM_STRING";
 
-                    .assertThat().statusCode(200)
-
-                    .extract().response();
-        try {
-            accessToken = response.jsonPath().getString("access_token");
-
-            tokenScope = response.jsonPath().getString("scope");
-            tokenType = response.jsonPath().getString("token_type");
-            refreshToken = response.jsonPath().getString("refresh_token");
-
-            int expiresIn = response.jsonPath().getInt("expires_in"); // The time period (in seconds) for which the access token is valid.
-            expiresAt = new Date(System.currentTimeMillis() + (expiresIn - 10) * 1000L);
-
-            return accessToken;
-        } catch (Exception ex) {
-            throw new RuntimeException("Failed to get access token: " + response.statusCode());
-        }
+        System.out.println("Open in browser and login to url: " + url);
+        return url;
     }
 
+    public static String generateValidAccessToken_authorizationFlow(String code) {
+        if (accessToken == null || new Date().after(expiresAt)){
+            refreshValidAccessToken_authorizationFlow(code);
+        }
+        return accessToken;
+    }
 
     /**
      * "Request an access token"
      *  https://developer.spotify.com/documentation/web-api/tutorials/code-flow
      * */
-    private static String generateValidAccessToken_authorizationFlow(String authorizationCode) {
+    private static String refreshValidAccessToken_authorizationFlow(String code) {
         Response response = RestAssured
                 .given()
                     .spec(ACCESS_TOKEN_SPEC_THROUGH_AUTHORIZATION) // Authorization = Basic {client_id * client_secret} + Content-Type = application/x-www-form-urlencoded.
                     .formParam("grant_type", "authorization_code")
-                    .formParam("code", authorizationCode)
+                    .formParam("code", code)
                     .formParam("redirect_uri", SpotifyClientService.getRedirectUri())
-                    .formParam("client_id", SpotifyClientService.getClientId()) // ?
-                    .formParam("client_secret", SpotifyClientService.getClientSecret()) // ?
                 .when()
                     .post()//TOKEN_URL
                 .then()
                     .log().ifError()
 
                     .assertThat().statusCode(200)
-
                     .extract().response();
         try {
             accessToken = response.jsonPath().getString("access_token");
