@@ -2,14 +2,14 @@ package com.apirestassured.spotifyapi;
 
 import com.apirestassured.spotifyapi.apiClient.ApiClient;
 import com.apirestassured.spotifyapi.apiClient.AuthorizationTokenGenerator;
+import com.apirestassured.spotifyapi.apiClient.RequestAuthorizationCode;
 import com.apirestassured.spotifyapi.model.responseDto.GetArtistDto;
 import com.apirestassured.spotifyapi.model.responseDto.SaveAlbumForCurrentUserResponseDto;
 import com.apirestassured.spotifyapi.selenium.SpotifyLoginSelenium;
+import com.apirestassured.spotifyapi.selenium.WebElementHelper;
 import com.apirestassured.spotifyapi.service.SaveAlbumsForCurrentUserRequestService;
 import io.restassured.http.Method;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.slf4j.Logger;
@@ -17,29 +17,30 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-
+@TestInstance(TestInstance.Lifecycle.PER_CLASS) // allows to use non-static @BeforeAll
 @SpringBootTest(classes = SpotifyApiApplication.class)
 public class SpotifyTests {
 
-    private final ApiClient apiClient;
-    private final SaveAlbumsForCurrentUserRequestService saveAlbumsForCurrentUserRequestService;
-    private final SpotifyLoginSelenium spotifyLoginSelenium;
+    @Autowired
+    private ApiClient apiClient;
+    @Autowired
+    private SaveAlbumsForCurrentUserRequestService saveAlbumsForCurrentUserRequestService;
+    @Autowired
+    private RequestAuthorizationCode requestAuthorizationCode;
 
     private WebDriver driver;
 
+    private SpotifyLoginSelenium spotifyLoginSelenium;
+
     private static final Logger logger = LoggerFactory.getLogger(SpotifyTests.class);
 
-    @Autowired
-    public SpotifyTests(ApiClient apiClient, SaveAlbumsForCurrentUserRequestService saveAlbumsForCurrentUserRequestService, SpotifyLoginSelenium spotifyLoginSelenium) {
-        this.apiClient = apiClient;
-        this.saveAlbumsForCurrentUserRequestService = saveAlbumsForCurrentUserRequestService;
-        this.spotifyLoginSelenium = spotifyLoginSelenium;
-    }
 
     @BeforeEach
-    public void createNewWebDriver() {
+    public void setUp() {
         driver = new ChromeDriver();
         driver.manage().window().maximize();
+
+        spotifyLoginSelenium = new SpotifyLoginSelenium(driver);
     }
 
     @Test
@@ -63,8 +64,9 @@ public class SpotifyTests {
         var jsonBuilder = saveAlbumsForCurrentUserRequestService.mapObjectToJsonRequest(requestBuilder); // serialize from Request Object to JSON file
 
         // retrieve a code
-        String url = AuthorizationTokenGenerator.getRequestAuthorizationCode();
-        String code = spotifyLoginSelenium.getCodeAfterRedirect(url);
+        String url = requestAuthorizationCode.getRequestAuthorizationCode();
+        // selenium
+        String code = spotifyLoginSelenium.getCodeAfterRedirect(driver, url);
 
         // retrieve accessToken
         String accessToken = AuthorizationTokenGenerator.generateValidAccessToken_authorizationFlow(code);
@@ -78,5 +80,14 @@ public class SpotifyTests {
                 jsonBuilder,
                 accessToken,
                 SaveAlbumForCurrentUserResponseDto.class);
+    }
+
+    @AfterEach
+    public void tearDown() {
+        // create new chromeDriver
+        if (driver != null) {
+            driver = null;
+            driver.quit();
+        }
     }
 }

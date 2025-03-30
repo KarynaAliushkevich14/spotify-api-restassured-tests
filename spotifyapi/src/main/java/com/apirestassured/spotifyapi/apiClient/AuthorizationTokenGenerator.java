@@ -22,9 +22,6 @@ public class AuthorizationTokenGenerator {
     private static String tokenType;
     private static String tokenScope;
 
-    private static final String TOKEN_URL = "https://accounts.spotify.com/api/token"; // ?
-    private static final String AUTH_URL = "https://accounts.spotify.com/authorize";
-
     private static final RequestSpecification ACCESS_TOKEN_SPEC_THROUGH_CLIENT_CREDENTIALS = ReqSpecification.getAuthRequestSpec_throughClientCredentials();
     private static final RequestSpecification ACCESS_TOKEN_SPEC_THROUGH_AUTHORIZATION = ReqSpecification.getAuthRequestSpec_throughAuthorization();
 
@@ -66,23 +63,8 @@ public class AuthorizationTokenGenerator {
         }
     }
 
+
     // AUTHORIZATION FLOW
-    /**
-     * "Request User Authorization"
-     *  https://developer.spotify.com/documentation/web-api/tutorials/code-flow
-     * */
-    public static String getRequestAuthorizationCode() {
-        String url = AUTH_URL + "?" +
-                "response_type=code" +
-                "&client_id=" + SpotifyClientService.getClientId() +
-                "&scope=user-read-private%20user-read-email" +
-                "&redirect_uri=" + SpotifyClientService.getRedirectUri() +
-                "&state=RANDOM_STRING";
-
-        System.out.println("Open in browser and login to url: " + url);
-        return url;
-    }
-
     public static String generateValidAccessToken_authorizationFlow(String code) {
         if (accessToken == null || new Date().after(expiresAt)){
             refreshValidAccessToken_authorizationFlow(code);
